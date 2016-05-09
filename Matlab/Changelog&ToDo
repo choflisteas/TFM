@@ -1,0 +1,347 @@
+Bugs:
+	Documentar la función eventosPiernaG. 
+		el parametro sin documentar fh no se respeta.
+	eventospierectoff tiene documentacion que no coincide con lo que hace la funcion.
+		el parámetro frecuencia no se respeta.
+    alg_est_dist_simur ignora los TO. Volver a usarlos ahora que tenemos un metodo de deteccion fiable.
+	alg_ejes_anatomicos es muy rara, usa cosas del xbus externas al driver, y solo va con los Xbus
+    eventospiernaG solo funciona a una frecuencia, sin indicarla
+    eventos_RT y alg_det_event solo van a 100Hz
+    entrena_ident_act solo va a 50Hz. ident_act lo mismo.
+    alg_det_mov solo funciona a una frecuencia, sin indicarla
+	El driver Xbus no funciona cuando tiene dos IMUS y se le pide leer solo uno. Notificarlo.
+ToDo:
+	
+	Eliminar la función eval() en playsilop(). Necesita cambios en addalgoritmo
+	Algoritmos
+		Añadir dependencia de alg_est_mov a alg_det_event
+		Implementar el resto de algoritmos posibles (v?): actividad, saltos, sentadillas, biceps, piraguas, 
+			paso desde pie/pierna... 
+        Incluir las funciones de JC para el pie + ¿orientaciones por defecto?
+	SO:
+		Que funcione en osx
+	Funcionalidad:	
+		Implementar removeimu, para eliminar imus añadidos por addimu
+		Implementar removealgoritmo, para eliminar algoritmos añadidos por addalgoritmo
+		Implementar siloptool, herrapiemta grafica de creacions de silopprogramas
+        Modo de simulación a la máxima velocidad posible del ordenador.
+        Unificar el uso de COLUMNADISPONIBLE y NUMEROSENHALES en solo una variable
+	Nuevos sensores
+		añadir drivers logomatic
+        Incorporar el MiTG de Maria Jose definitivaente.
+        Incluir rotaciones por software en los drivers que no las soportan por hardware.
+
+-------------------------------------------------------------------------------------------
+
+Done: 
+v0.13  
+    Añadido algoritmo alg_est_hombro_prevencion2_izq para estimar flexión, abduccion y pronacion del hombro izquierdo.
+         flexion y abduccion se calculan en base a las proyecciones anatómicas del brazo
+    Añadido algoritmo alg_est_hombro_prevencion2 para estimar flexión, abduccion y pronacion del hombro derecho.
+         flexion y abduccion se calculan en base a las proyecciones anatómicas del brazo
+    Añadido algoritmo alg_est_hombro_prevencion_izq para estimar flexión, abduccion y pronacion del hombro izquierdo.
+         flexion y abduccion se calculan repartiendo la desviacion respecto a la vertical. limitado a 125º
+    Añadido algoritmo alg_est_hombro_prevencion para estimar flexión, abduccion y pronacion del hombro derecho.
+         flexion y abduccion se calculan repartiendo la desviacion respecto a la vertical. limitado a 125º
+    Añadido algoritmo alg_est_muneca para estimar flexión y desviacion lateral de la muñeca izquierda.
+    Añadido algoritmo alg_est_codo_izq para estimar flexión y pronación del codo izquierdo.
+    Eliminados los cambios para que playsilop() informe del 1º segundo de captura. Movidos al driver Xbus.
+         Se depende de la función tic() toc(), pero su uso es totalmente opcional.
+    Añadido algoritmo alg_est_hombro para estimar flexión, abduccion y pronacion de un hombro robotico (los ángulos
+           no coinciden con los médicos)
+    Añadido algoritmo alg_est_muneca para estimar flexión y desviacion lateral de la muñeca.
+    Añadido algoritmo alg_est_codo para estimar flexión y pronación del codo.
+    Añadido algoritmo alg_desp_acc Para desplazar las medidas según ecuaciones de solido rigido
+    Documentar la dependencia de esta característica de la función tic() externa.
+    Modificación a playsilop para que informe del instante en el que se recibe el primer bloque de datos
+    Modificaciones varias a playsilop, para ejecutarse por duraciones fijas, dependiendo de una ventana
+    Añadido alg_calib
+    Añadido driver_SF_6D.
+    Modificada playsilop para permitir que se la pase una figura desde la que controlar la ejecución
+        con un boton de Stop. Permite refrescos mucho más rápido.
+    Modificada alg_plot_senhales para que pueda recibir unos ejes sobre los que dibujar
+v0.12 Corrección de errores
+    Eliminado el codigo que usa dependencias en todas partes
+    Eliminada alg_bar_dependencias y alg_plot_dependencias
+    Añadida alg_bar_senhales		
+    addalgoritmo ya no añade dependencias a los algoritmos.
+    playsilop ya no busca cuales son las dependencias, ni las añade al procesamiento
+    silopdemo se ha adaptado totalmente a la nueva estructura de senhales.
+    retocado alg_plot_pos2d para usar señales en lugar de dependencias.
+    retocado alg_est_distancia_simur para usar señales en lugar de dependencias.
+    retocado alg_est_distancia_r4 para usar señales en lugar de dependencias.
+    retocado alg_est_distancia_pendulo para usar señales en lugar de dependencias.
+    retocado alg_est_distancia_arco para usar señales en lugar de dependencias.
+    retocado alg_est_2d para usar señales en lugar de dependencias.
+    corregido error en alg_plot_pos_2d. Tenia las dos dependencias como variables distintas.
+    si n_valores_retorno es un cell array , las salidas del algoritmo se añaden a la lista de señales
+    n_valores_retorno en addalgoritmo() puede ser un número o un cell array de señales {'punto.dato'}
+    Incluida savesilop(), que permite guardar datos en un fichero .sl despúes de haberlos modificado
+    Error en la documentacion de alg_det_event corregido
+    Actualizada la documentación sobre como escribir un driver
+    Corregido un error en connectsilop(). No borraba el driver de la lista despues de destruirlo (al detectar errores)
+    Corregido un error en stopsilop(). Acepta que el dispositivo se haya desenchufado a lo bestia al intentar detenerlo.
+    Corregido un error en playsilop()/creacomando que impedia añadir más de una dependencia en un algoritmo
+
+v0.11 Correccion de errores. Cambios de uso en connectsilop. Estructura de drivers.
+	Los nombres de las señales Acc_X, etc son dependientes del driver, y pueden ser cualquiera.
+	terminada la estructura de drivers.
+	eliminada la referencia global a SILOP_CONFIG en los drivers.
+    driver_Xbus incorpora toda la funcionalidad. connectsilop la usa. Eliminadas todas sus funciones auxiliares
+	driver_SF_3D incorpora la funcionalidad de sf3dsetperiod y 'configura'. Eliminada sf3dsetperiod.m
+	driver_SF_3D incorpora la funcionalidad 'connect' y 'configura'(parcial). Connectsilop la usa. Se elimina creasf3d.m
+    driver_SF_3D incorpora la funcionalidad 'create'. connectsilop la usa. Eliminada esa funcionalidad de creasf3d.m
+    driver_temporizador incorpora la callback de 'muestreo'. Eliminada simula_muestreo.m
+    driver_temporizador incorpora la funcionalidad 'create', 'connect' y 'configura'. connectsilop usa el driver.
+    connectsilop modifica sus parámetros.
+    stopsilop ya no depende de los drivers concretos. Llama a los metodos 'gotoconfig' y 'destruye' del apropiado.
+    driver_Xbus incorpora la funcionalidad 'destruye'. stopsilop usa el driver. eliminada destruyexbusmaster.m
+    driver_Xbus incorpora la funcionalidad 'gotoconfig'. stopsilop,alg_ejes_anatomicos usan el driver. eliminada gotoconfig
+    driver_SF_3D incorpora la funcionalidad 'destruye'. stopsilop usa el driver. eliminada destruyesf3d.m
+    driver_SF_3D incorpora la funcionalidad 'gotoconfig'. stopsilop usa el driver. creasf3d tambien. eliminada sf3dgotoconfig
+    driver_Temporizador incorpora la funcionalidad 'destruye'. stopsilop usa el driver.
+    driver_Temporizador incorpora la funcionalidad 'gotoconfig'. stopsilop usa el driver.
+    playsilop ya no depende de los driver concretos. Llama al método 'gotomeasurement' del apropiado.
+    movido SILOP_CONFIG.BUS.File a SILOP_CONFIG.File en todas partes. NO es un driver de entrada.
+    alg_ejes_anatomicos ya no supone que exista SILOP_CONFIG.BUS.Xbus
+    driver_Temporizador incorpora la funcionalidad de 'gotomeasurement'. playsilop usa el driver
+    Añadida la funcion driver_Temporizador, que incorporara toda la funcionalidad del driver y eliminara el resto
+    driver_Xbus incorpora la funcionalidad 'leerXbusData'. Eliminada leerXbusdata.
+	iniciacaptura, continuarcaptura y pararcaptura se pasan al archive. No deberían usarse directamente.
+    driver_Xbus incorpora la funcionalidad de 'gotomeasurement'. playsilop usa el driver, alg_ejes_anatomicos tambien. Eliminada gotomeasurement
+    Añadida la funcion driver_Xbus, que incorporara toda la funcionalidad del driver y eliminara el resto
+	driver_SF_3D incorpora la funcionalidad 'leersf3dData'. Eliminada leersf3ddata.
+	driver_SF_3D incorpora la funcionalidad 'gotomeasurement'. Eliminada sf3dgotomeasurement. playsilop usa el driver.
+	Añadida la función driver_SF_3D, que incorporara toda la funcionalidad del driver, y eliminara el resto.
+	initsilop ya no rellena SILOP_CONFIG.BUS. Ya no espera que SILOP_CONFIG.Bus.File exista.
+	connectsilop ya no rellena campos para los drivers que no se usan en SILOP_CONFIG.BUS
+	playsilop ya no espera que exista ningún campo relativo a los drivers en SILOP_CONFIG.BUS
+	stopsilop guarda los datos antes de tocar los drivers, que es más seguro.
+	stopsilop elimina los campos de SILOP_CONFIG.BUS al destruir el driver
+	stopsilop ya no espera que exista ningún campo relativo a los drivers en SILOP_CONFIG.BUS
+	Eventos_RT modificada para detectar mejor el TO. Cambiada deteccion freq señal y margenes de búsqueda y metodo para detectar TO
+	Bug en playsilop. Ahora se limpia getkey despues de un error.
+
+v0.10 Nuevo sensor: Sparkfun serial 3D accelerometer. Etiquetas libres para la posicion de los sensores
+	modificada stopsilop para llamar a sf3dgotoconfig y destruyesf3d
+	añadida private/leersf3dData.m
+	añadida private/sf3dgotomeasurement.m
+	playsilop incorpora la posibilidad de llamar a sf3dgotomeasurement
+	se añade private/sf3dsetperiod.m
+	se añade private/sf3dgotoconfig.m
+	se añade private/creasf3d.m
+	connectsilop añade conectar_a_SF_3D
+	connectsilop añade un nuevo modo de funcionamiento (el modo=2) para manejar los SF_3D
+	addimu y connectsilop ya no comprueban puntos preinicializados.
+	arreglado bug en addimu, no añadia orientacion a dispositivos que no estuviesen preinicializados.
+	arreglado bug en connectsilop "sensor" sin inicializar cuando solo se añade uno
+	initsilop ya no inicializa puntos que luego no se van a usar.
+	addimu permite añadir sensores en posiciones arbitrarias.
+
+v0.9.4   Correccion de errores
+	eliminadas referencias al COG en conecta_a_log y conecta_a_tana   
+	connectsilop lista para nombres de posiciones variables
+	conecta_a_xbus lista para nombres de posiciones variables.
+	alg_est_dist_simur ignora los TO, hasta que tengamos un metodo de deteccion fiable. Documentado.
+	Bugs es alg_est_dist_simur. parametros por defecto mal comprobados
+	Bugs en distanciapenduloparcial to instead of TO
+	Bugs en distanciapenduloparcial SILOP_penduloparcial.KSP mal referenciado como KSP
+	connectsilop, conectar_a_sl corregigo bug de CONFIG instead of SILOP_CONFIG
+	conectar_a_sl lista para nombres de posiciones variables.
+
+v0.9.3  Correccion de errores
+	Cambiado el nombre a Inersens
+	conectar_a_tana lista para nombres de posiciones variables.
+	Incluida la licencia y los autores en un fichero README y ShortLicense para que se incluya en la ayuda online
+	conectar_a_log lista para nombres de posiciones variables.
+	Reemplazados los eval por referenciacion indirecta .() en diversas funciones.
+	Factorizada connectsilop en conecta_a_log conecta_a_tana conecta_a_sl y conecta_a_xbus para más fácil comprension
+	Initsilop inicializa a [] SILOP_CONFIG.BUS.SENHALES, necesario para que la lista sea dinámica, antes de rellenarla. 
+	Initsilop inicializa SILOP_CONFIG.BUS.{SF_3D y SF_6DOF} = -1; para manejar los SparkFun serial 3d accelerometers
+		y bluettoth 6 degree of freedom. SF_3D:initsilop ready
+
+v0.9.2	Correccion de errores
+	Unificado el funcionamienot para Xsens BT y USB. Ahora se usan gotoconfig y gotomeasurement directamente.
+	Pasadas a private todas las funciones de manejo directo de los Xsens.
+	Todos los fwrite al puerto serie se hacen 'async'ronos.  Ahora funciona en Linux	
+	Se vuelven a lanzar los errores en connectsilop y playsilop desde los try, para romper scripts externos que
+		encuentren el error
+		
+v0.9.1	Correccion de errores
+	modificadas las comunicaciones para usar correctamente el RTS. Cporregido problema con bluetooth.
+	modificadas las comunicaciones a 2 bits de stop. corrige el problema del bluettoh y de linux?
+	destruyexbusmaster está algo mas protegido para que garantice mejor la destruccion.
+	connecsilop captura los errores posteriores creaxbusmaster y destruye el bus mediante stopsilop    
+	creaxbusmaster destruye el puerto si se produjo un error. No se podía hacer a alto nivel porque el puerto
+		aún no estan el SILOP_CONFIG.
+	playsilop() captura cualquier error lanzado y llama a stopsilop() para salir limpiamente
+	Se limpian todos los algoritmos al salir.
+    Modificado alg_plot_pos2d para recordar toda la señal.
+	eliminar todas las devoluciones de valores de error. Ahora se arrojan mediante error. Se pueden pillar con
+		un try catch.
+
+v0.9   Datos internor fuera de la vista del usuario
+	stopsilop() por defecto deja todo listo para rellamar a playsilop(). Puede detenerlo todo opcionalmente.
+	ReImplementar la calibracion en un alg_ejes_anatomicos, por medio de SILOP_CONFIG y SetObjectAlignment
+	       Automáticamente todas las señales dependerán de las calibradas.	
+	Limpieza del warnings del depurador para buscar más fácil los problemas
+	Se aprovecha para hacer un tratamiento más consistente de las señales y los puntos. Ahora casí todo está en listas
+	     que podrían ser incluidas en una única lista dentro de SILOP_CONFIG, para mas fácil modificación.
+	     Actualemente está "duplicada" en initsilop, connectsilop(que sigue accediendo a señales directamente en las
+	     simulaciones), y addimu
+	Pasar Config a SILOP_CONFIG global y hacer que desaparezca de la vista del usuario. Implica:
+	     Modificar la demo, Modificar initsilop, Modificar addimu, Modificar connectsilop, Modificar addalgoritmo
+	     Modificar playsilop y creacomandos.
+	     Modificar stopsilop y loadsilop
+
+v0.8    Calibracion de los sensores online
+	orientacion por defecto para el COG R=[3,-2,1]
+	connectsilop soporta que los ejes sean negativos en tiempo real
+	corregidos errores diversos. connectsilop no actualizaba bien el numero de señales y otros
+	corregidos errores en algoritmos alg_det_event y alg_est_orientacion* cuando no se tienen datos.
+	connectsilop ya permite reorientar totalmente en simulación. Se rotan los datos originales.
+	Implementados los mensajes RegObjectAlignment y SetObjectAlignement necesarios para la reorientación
+	Implementada la simulación desde ficheros .tana (ap,ml,v,t,t)
+	Configurar automáticamente la orientacion de los imus. mediante R en connectsilop (sólo para valores
+		positivos, no se aceptan por ahora valores negativos)
+	Implementada la simulación desde ficheros .sl
+	Comprobamos que desde los .log sólo se use el COG
+	Revisado el paso de parámetros a connectsilop()	 y su documentacion
+	Modificada addimu, para tener los parámetros en el mismo orden que las demás
+	Modificada addimu para que se pueda indicar la orientación del sensor.
+	Documentar el parámetro RMS en energiawavelet
+	bug Eliminada 1º linea extra de ejes_anatomicos
+	Documentar cual es la diferencia entre InitBus y ReqConfiguration
+	implementada alg_ejes_anatomicos preliminar
+	reestructurados los directorios. by request de Rafa y JC.
+	bug Añadidos los comandos drawnow a todas las funciones alg_bar* y alg_plot*  de dibujado
+
+v0.7.2  Correccion de errores
+	Se recupera el connectsilop de Rafa. No se habia incluido en versiones 0.7 y 0.7.1 correctamente.
+
+v0.7.1  Correccion de errores
+	Se usa echodemo silopdemo desde las demo.xml
+	Se corrige el paso de parámetros en alg_est_dist_*, que era incorrecto.
+
+v0.7    XSens integrados en Tiempo Real. Se serializan los datos
+	Modificado generaayudas para que elimine las ayudas antiguas además de generar las nuevas
+	Modificado generaayudas para que añada el número de versión. Está en el fichero Version
+	playsilop() llama a stopsilop() automáticamente.
+	Ahora silopdemo es una demo auténtica.
+	Pasar parametros a alg_est_dist_* y se implementan todos los metodos actuales. alg_est_dist_arco,
+	   alg_est_dist_pendulo, alg_est_dist_r4 y alg_est_dist_simur. 
+	Creada loadsilop() para leer nuestros propios archivos
+	Capturar la pulsación de ESC en playsilop. Incorporada getkey para hacerlo.
+	stopsilop guarda los datos correctamente
+	playsilop permite guardar los datos.
+	Initsilop añade nuevo campo config.bus.file para indicar que se salven los datos	
+	Añadidas alg_est_orient_compas y alg_est_orient_kalman
+	Renombrada alg_est_orient a alg_est_orient_gyro y añadido parámetro para configurar la frecuencia.
+	Numero de versión 0.7. Nuevas características.	
+	Implementar correctamente silopconnect por Rafa
+	Incorporadas modificaciones de Rafa a playsilop() para que inicie la captura con el XbusMaster
+	Incorporadas modificaciones de Rafa a creaxbusmaster() para configurar desde connectsilop()
+	Incorporadas modificaciones de Rafa a stopsilop() para que detenga la captura del XbusMaster
+
+v0.6    Esructura de  procesamiento en Tiempo Real
+	Añadir como demo de matlab el silop clásico
+	Movido el arranque de la simulación de connectsilop a playsilop
+	Todo probado y funcionando, con un test.log de los experimentos antiguos como log by default.
+	alg_det_mov corregida. Se buscan variaciones respecto a la media de cada tramo, y no valores absolutos
+	Cambio de nombre. rafa.log es ahora test.log. Se usa para la demo 
+	Eliminada parasilop4.mat, que hacía tiempo que no se usaba
+	Añadidas alg_plot_pos2d y alg_plot_senhales. Reemplazan y amplían a representa que se ha eliminado.
+	Añadirse al helpdesk correctamente
+	Implementar alg_est_2d. private
+	Bug en addalgoritmo, que no incluia bien las dependencias multiples.
+	Implementar alg_est_orient. private
+	Implementar alg_est_dist. private
+	Cambio menor a creacomando para permitir dependencias que generen multiples valores. Faltaba el [ ]
+	Implementar alg_detecta_eventos. private
+	Incorporado algoritmo para detección de movimiento. alg_det_mov
+	Documentada la estructura de captura y procesamiento de las señales.
+	Incorporada stopsilop. Resetea correctamente simula_muestreo si estamos en simulación
+	Incorporada playsilop, incluye creacomandos y desplaza 
+	Incorporada silopdemo
+	incorporada a la toolbox addalgoritmo, que tiene dentro buscaalgoritmo
+	incorporada a la toolbox connectsilop. Por ahora sólo va en simulación
+	incorporada a la toolbox simula_muestreo, como callback private.
+	incorporada la función addimu
+	incorporada la funcion initsilop
+	Definir la estructura de captura y procesamiento de las señales.
+	Añadida la toolbox al menu inicio
+	Se pasan buscamaximos, buscamaximosth y filtro0 a funciones normales, by user request. A partir de ahora
+	   serán privadas las que sean de utilidad exclusiva de pocas funciones/scripts y no se suelan emplear
+	   desde la linea de comandos.
+	Actualizado número de versión 0.6 (nuevas características)
+	eliminar evento_IC_RT.m
+
+v0.5. Correccion de errores  
+	Documentar las funciones privadas del Xsens.
+	s_calculaenenrgiawavelet renombrada a energiawavelet y documentada (cambiadas las funciones que la usan).
+	Documentadas las funciones privadas de procesamiento de datos
+	s_tomardatosfichero pasa a ser funcion anidada de entrena_ident_act
+	s_separardatosvector pasa a ser función anidada de entrena_ident_act
+	picos.m eliminada. tiene bugs graves. Rafa tiene su propia versión
+	Terminado de ordenar las funciones en la documentación.
+	Bug corregido. Se usa SILOP_DATA_BUFFER en gotomeasurement. No parece que tuviese efectos negativos.
+	Bug corregido. Se usan las variables persistentes sin redefinirlas en eventos_RT y evento_IC_RT
+	Bug corregido. Se limpia SILOP_DATA_BUFFER al salir de crearXbusMaster
+	bug corregido, en la función evento_IC_RT se cambia la llamada a picos por localmaxima, 
+		y se comprueba tamaño de pmax
+	bug corregido. Igual que el anterior en eventos_RT.
+	El número de versión se actualiza ahora desde las propiedades del documento. Campo Tema.
+	Añadida eventos_RT para detectar tanto el IC como el TO
+  Puestos warning de obsoleta en evento_IC_RT
+
+v0.4.	Derección de acrividades
+	Incrementado el número de versión
+	Eliminada la función EventosCOG
+	Bug corregido.fijada a 100Hz la frecuencia por defecto en distanciapendulo y distancia pendulo parcial, 
+		en lugar de 0Hz 
+	Añadida la carpeta archive. Contiene funciones que en su momento fueron parte de private, pero ahora no se usan.
+		No se pueden llamar sin reincluir en private, pero se conserva su código y quedan documentadas en el html
+	Incluidas las funciones privadas de jesus para identificación de actividades. Coautor Antonio
+	Incluidas las funciones ident_act y entrena_ident_act desarrolladas por jesus para la deteccion de actividades.
+	Incluida evaluasentadillas que se había quedado sin actualizar en v0.3. eliminada desplazamientosentadillas.
+	Bug corregido. Se llama a leerXBusData a traves de un functionhandle, que es válido para las funciones private
+ 	Documentar las funciones de jesus para la detecciond de actividades
+	Funciones privadas picos y localmaxima necesarias para deteccion en TR de Javi
+	Incluida y documentada la funcion de Javi para la detección del IC en tiempo real.
+
+v0.3.	Se incorporan la caprura de los Xsens y funciones para las piraguas
+	Incorporadas todas las funciones de Rafa para la captura de los Xsens
+	Eliminada dibuja_eventos
+	Eliminada desplazamiento_sentadillas, que se sustituye por evalua_sentadillas
+	Eliminada distancia_recto
+	Añadida evaluasalto que reemplaza a tiempo_saltos
+	Añadida eventospiraguas
+	Añadida frecuenciapaladas
+	Revision documentacion automatica
+
+v0.2    Se incorpora la documentacion
+	Añadido el pdf (y el .doc con la documentación) por JC
+	Corregido desplazamientosentadillas
+	Renombrada eventos_PIE_recto a eventpierectoff
+	Añadido integrasig
+	Revision documentacion automatica
+
+v0.1    Se incorpora la Orientación
+	Añadidas funciones para la orientacion
+	Correcciones en buscamaximosth y funciones relacionadas con los salots
+
+v0.0.4  Correccion de errores
+	Correccion de error en la frecuencia del filtro de deteccion de los pasos en eventosCOGRecto
+	Correcciones de errores ¿cuales?		
+	Eliminado el history.txt, que luego se recuperará para generar este fichero.
+	
+v0.0.3  Correcciones de errores
+	Añadido un history.txt para documentar cambios
+
+v0.0.2  Saltos y sentadillas
+	Añadidas todas las funciones de los saltos y sentadillas
+	Modificaciones en distanciarecto
+	Eliminada distanciapenduloparcialhs, distanciapenduloparcial incluyes sus capacidades.
+	Correcciones de errores ¿cuales?
+
+v0.0.1 Versión original de la toolbox by JC
