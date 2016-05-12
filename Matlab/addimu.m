@@ -41,6 +41,7 @@ function addimu(donde, serie, R, userdata) %#ok<INUSD>
         else
             R=[1,2,3];
         end
+        userdata=[];
     elseif (nargin<4)
         userdata=[];
     end
