@@ -4,7 +4,7 @@ import serial
 import struct
 import time
 import threading
-import pysimur
+#import pysimur
 
 verbose=True
 
@@ -22,7 +22,7 @@ def SendMessage(puerto,codigo):
   #Se envia por el puerto serie 
   while (puerto.inWaiting()>0): #Vaciar el puerto
     if verbose:
-      print '>>> AVISO: Se descartaran ', puerto.inWaiting() , ' datos'
+      print ('>>> AVISO: Se descartaran ', puerto.inWaiting() , ' datos')
     puerto.flushInput()
   puerto.write(msg)
 
@@ -35,11 +35,11 @@ def CheckError(puerto,numero):
   checksum=sum(reply[1:])
   error=False
   if checksum%256!=0:
-    raise ValueError, 'Error de checksum'
+    raise ValueError ('Error de checksum')
   elif reply[2]!=numero:
-    raise ValueError, 'Error en la secuencia de mensajes'
+    raise ValueError ('Error en la secuencia de mensajes')
 
-class simurdriver(pysimur.simurdriver):
+class simurdriver():#pysimur.simurdriver):
   """clase para gestionar la captura de datos del Xbus Master"""
   def __init__(self,datos,freq=100,buff=1,opt=None,lock=threading.Lock()):
     """Crea un objeto BusMaster para controlar la captura de
@@ -53,7 +53,7 @@ class simurdriver(pysimur.simurdriver):
         bps->     Velocidad de transferencia (por defecto 460800 bps)
     """
     if opt==None:
-      opt=['/dev/ttyUSB0',460800]
+      opt=['/dev/ttyUSB0',115200]
     puerto=opt[0]
     bps=opt[1]
 
@@ -70,7 +70,7 @@ class simurdriver(pysimur.simurdriver):
       self.puerto=serial.Serial(puerto,bps,timeout=0.1)
       self.puerto.setRTS(1)
     except:
-      print 'No se ha podido abrir el puerto de comunicaciones'
+      print ('No se ha podido abrir el puerto de comunicaciones.')
     self.puerto.stopbits=serial.STOPBITS_TWO
     self.bps=bps
     self.thread_read=None
@@ -118,7 +118,7 @@ class simurdriver(pysimur.simurdriver):
     if self.modo==0:
       self.__SetMTOutputMode(0);
     else:
-      raise ValueError, 'El Xbus solo soporta el modo 0'
+      raise ValueError ('El Xbus solo soporta el modo 0')
     self.puerto.timeout = timeout
     for name in self.sensores:
       for sufijo in ['_ax','_ay','_az','_wx','_wy','_wz','_bx','_by','_bz']:
@@ -129,7 +129,7 @@ class simurdriver(pysimur.simurdriver):
           if verbose:
             print('añadida la señal: ' +name+sufijo)
         else:
-          raise ValueError, 'la señal '+name+sufijo+' está duplicada'
+          raise ValueError ('la señal '+name+sufijo+' está duplicada')
 
   def gotomeasurement(self):
     """Pasa el dispositivo al estado measurement.
@@ -149,7 +149,7 @@ class simurdriver(pysimur.simurdriver):
     """
     while self.capturando:
       try:
-        t, self.puerto.timeout = self.puerto.timeout, 1.2 #Voy a leer maximo 1segundo
+        t, self.puerto.timeout = self.puerto.timeout, 1.2 #Voy a leer maximo 1 segundo
         data=self.puerto.read(int(self.DataLength*self.buffer))
         self.puerto.timeout=t #Recupero timeout standar
         #Separar los mensajes
@@ -160,9 +160,9 @@ class simurdriver(pysimur.simurdriver):
           mensaje=data[tmp*self.DataLength:(tmp+1)*self.DataLength]
           reply=struct.unpack(formato,mensaje)
           if (sum(reply[1:])%256!=0):
-            raise ValueError, 'ERROR de checksum'
+            raise ValueError ('ERROR de checksum')
           if (reply[2]!=50):
-            raise ValueError, 'ERROR de tipo de mensaje'
+            raise ValueError ('ERROR de tipo de mensaje')
           #procesar la informacion
           muestra=struct.unpack('>H',mensaje[4:6])
           muestra=float(muestra[0])
@@ -214,7 +214,7 @@ class simurdriver(pysimur.simurdriver):
     reply=self.puerto.read(4)
     reply=struct.unpack('BBBB',reply)
     if reply[2]!=3:
-      raise ValueError, 'Error en la secuencia de mensajes'
+      raise ValueError ('Error en la secuencia de mensajes')
     #de momento no se ha detectado ningun error y se continua con la lectura
     #del resto del mensaje ack1(end)+1 bytes
     reply2=self.puerto.read(reply[-1]+1)
@@ -223,13 +223,13 @@ class simurdriver(pysimur.simurdriver):
     reply=reply+struct.unpack('B'*len(reply2),reply2)    
     checksum=sum(reply[1:])
     if checksum%256!=0:
-      raise ValueError, 'Error de checksum'
+      raise ValueError ('Error de checksum')
     #Numero de sensores conectados. No tiene porque coincidir con ns, que son los usados
-    self.ndisp=reply[3]/4
+    self.ndisp=reply[3]//4
     #Idenfiticadores de los sensores
     ID_sensores=reply[4:-1]
     self.ID_sensores=[]
-    for tmp in range(len(ID_sensores)/4):
+    for tmp in range(int(len(ID_sensores)/4)):
       numserie=''
       for tmp2 in range(4):
         numserie=numserie+"%02X"%ID_sensores[tmp*4+tmp2]
@@ -242,7 +242,7 @@ class simurdriver(pysimur.simurdriver):
           self.sensores[sensorname].kID=k
           break
       else:
-        raise ValueError , 'no se ha encontrado el sensor: '+str(sensorname)+' ID:'+str(self.sensores[sensorname].opt)
+        raise ValueError ('no se ha encontrado el sensor: '+str(sensorname)+' ID:'+str(self.sensores[sensorname].opt))
         
     #Fijamos el tamaño de los datos
     if self.modo==0 :
@@ -259,7 +259,7 @@ class simurdriver(pysimur.simurdriver):
     """
     #Calcular la frecuencia de muestreo
     freq=int(freq)
-    fm=[115200/freq/256, 115200/freq%256]
+    fm=[int(115200/freq//256), int(115200/freq%256)]
     #Cuerpo del mensaje (excepto el byte de checksum)
     codigo=[250,255,4,2]+fm
     SendMessage(self.puerto,codigo)
@@ -294,3 +294,11 @@ class simurdriver(pysimur.simurdriver):
       SendMessage(self.puerto,codigo)
       CheckError(self.puerto,codigo[2]+1)
 
+if __name__=='__main__':
+    datos=[]    
+    bus=simurdriver(datos)
+    bus.addsensor('PIE',1323357)
+    bus.gotoconfig()
+    bus.configura()
+    
+    
