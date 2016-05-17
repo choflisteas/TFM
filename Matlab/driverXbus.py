@@ -38,10 +38,15 @@ def CheckError(puerto,numero):
     raise ValueError ('Error de checksum')
   elif reply[2]!=numero:
     raise ValueError ('Error en la secuencia de mensajes')
+    
+class sensor():
+    def __init__(self,sn,did):
+        self.opt=sn
+        self.kID=did
 
 class simurdriver():#pysimur.simurdriver):
   """clase para gestionar la captura de datos del Xbus Master"""
-  def __init__(self,datos,freq=100,buff=1,opt=None,lock=threading.Lock()):
+  def __init__(self,datos,freq=100,buff=1,modo=0,opt=None,lock=threading.Lock()):
     """Crea un objeto BusMaster para controlar la captura de
     datos. 
     Input parameters:
@@ -62,14 +67,14 @@ class simurdriver():#pysimur.simurdriver):
     self.datos=datos
     #Calculamos el numero de muestras almacenadas en el buffer
     self.buffer=buff*freq
-    self.modo=0
+    self.modo=modo
     self.lock=lock
 
     #Creamos el objeto serial asociado al puerto de comunicaciones  
     try:
       self.puerto=serial.Serial(puerto,bps,timeout=0.1)
       self.puerto.setRTS(1)
-    except:
+    except serial.SerialException:
       print ('No se ha podido abrir el puerto de comunicaciones.')
     self.puerto.stopbits=serial.STOPBITS_TWO
     self.bps=bps
@@ -115,21 +120,36 @@ class simurdriver():#pysimur.simurdriver):
     timeout, self.puerto.timeout = self.puerto.timeout,1
     self.__InitBus()
     self.__SetPeriod(self.freq)
-    if self.modo==0:
-      self.__SetMTOutputMode(0);
+    if self.modo==0 or self.modo==1:
+      self.__SetMTOutputMode(self.modo);
     else:
-      raise ValueError ('El Xbus solo soporta el modo 0')
+      raise ValueError ('El Xbus solo soporta los modos 0 y 1.')
     self.puerto.timeout = timeout
-    for name in self.sensores:
-      for sufijo in ['_ax','_ay','_az','_wx','_wy','_wz','_bx','_by','_bz']:
-        if not self.datos.has_key(name+sufijo):
-          self.datos[name+sufijo]={}
-          self.datos[name+sufijo]['tiempo']=[]
-          self.datos[name+sufijo]['valor']=[]
-          if verbose:
-            print('añadida la señal: ' +name+sufijo)
-        else:
-          raise ValueError ('la señal '+name+sufijo+' está duplicada')
+    
+    if self.modo==0:
+        for name in self.sensores:
+          for sufijo in ['_ax','_ay','_az','_wx','_wy','_wz','_bx','_by','_bz']:
+            #if not self.datos.has_key(name+sufijo):
+            if not (name+sufijo) in self.datos:
+              self.datos[name+sufijo]={}
+              self.datos[name+sufijo]['tiempo']=[]
+              self.datos[name+sufijo]['valor']=[]
+              if verbose:
+                print('añadida la señal: ' +name+sufijo)
+            else:
+              raise ValueError ('la señal '+name+sufijo+' está duplicada')
+    if self.modo==1:
+        for name in self.sensores:
+          for sufijo in ['_q0','_q1','_q2','_q3']:
+            #if not self.datos.has_key(name+sufijo):
+            if not (name+sufijo) in self.datos:
+              self.datos[name+sufijo]={}
+              self.datos[name+sufijo]['tiempo']=[]
+              self.datos[name+sufijo]['valor']=[]
+              if verbose:
+                print('añadida la señal: ' +name+sufijo)
+            else:
+              raise ValueError ('la señal '+name+sufijo+' está duplicada')              
 
   def gotomeasurement(self):
     """Pasa el dispositivo al estado measurement.
@@ -164,40 +184,61 @@ class simurdriver():#pysimur.simurdriver):
           if (reply[2]!=50):
             raise ValueError ('ERROR de tipo de mensaje')
           #procesar la informacion
-          muestra=struct.unpack('>H',mensaje[4:6])
-          muestra=float(muestra[0])
-          DL=36 #Longitud de los datos en el modo 1
-          for s in self.sensores:
-            k=self.sensores[s].kID
-            ax=struct.unpack('>f',mensaje[6+k*DL:10+k*DL])
-            ay=struct.unpack('>f',mensaje[10+k*DL:14+k*DL])
-            az=struct.unpack('>f',mensaje[14+k*DL:18+k*DL])
-            wx=struct.unpack('>f',mensaje[18+k*DL:22+k*DL])
-            wy=struct.unpack('>f',mensaje[22+k*DL:26+k*DL])
-            wz=struct.unpack('>f',mensaje[26+k*DL:30+k*DL])
-            bx=struct.unpack('>f',mensaje[30+k*DL:34+k*DL])
-            by=struct.unpack('>f',mensaje[34+k*DL:38+k*DL])
-            bz=struct.unpack('>f',mensaje[38+k*DL:42+k*DL])
-            self.lock.acquire()
-            self.datos[s+'_ax']['tiempo'].append(muestra/self.freq)
-            self.datos[s+'_ay']['tiempo'].append(muestra/self.freq)
-            self.datos[s+'_az']['tiempo'].append(muestra/self.freq)
-            self.datos[s+'_wx']['tiempo'].append(muestra/self.freq)
-            self.datos[s+'_wy']['tiempo'].append(muestra/self.freq)
-            self.datos[s+'_wz']['tiempo'].append(muestra/self.freq)
-            self.datos[s+'_bx']['tiempo'].append(muestra/self.freq)
-            self.datos[s+'_by']['tiempo'].append(muestra/self.freq)
-            self.datos[s+'_bz']['tiempo'].append(muestra/self.freq)
-            self.datos[s+'_ax']['valor'].append(ax[0])
-            self.datos[s+'_ay']['valor'].append(ay[0])
-            self.datos[s+'_az']['valor'].append(az[0])
-            self.datos[s+'_wx']['valor'].append(wx[0])
-            self.datos[s+'_wy']['valor'].append(wy[0])
-            self.datos[s+'_wz']['valor'].append(wz[0])
-            self.datos[s+'_bx']['valor'].append(bx[0])
-            self.datos[s+'_by']['valor'].append(by[0])
-            self.datos[s+'_bz']['valor'].append(bz[0])
-            self.lock.release()
+          if self.modo==0:
+            muestra=struct.unpack('>H',mensaje[4:6])
+            muestra=float(muestra[0])
+            DL=36 #Longitud de los datos en el modo 0
+            for s in self.sensores:
+              k=self.sensores[s].kID
+              ax=struct.unpack('>f',mensaje[6+k*DL:10+k*DL])
+              ay=struct.unpack('>f',mensaje[10+k*DL:14+k*DL])
+              az=struct.unpack('>f',mensaje[14+k*DL:18+k*DL])
+              wx=struct.unpack('>f',mensaje[18+k*DL:22+k*DL])
+              wy=struct.unpack('>f',mensaje[22+k*DL:26+k*DL])
+              wz=struct.unpack('>f',mensaje[26+k*DL:30+k*DL])
+              bx=struct.unpack('>f',mensaje[30+k*DL:34+k*DL])
+              by=struct.unpack('>f',mensaje[34+k*DL:38+k*DL])
+              bz=struct.unpack('>f',mensaje[38+k*DL:42+k*DL])
+              self.lock.acquire()
+              self.datos[s+'_ax']['tiempo'].append(muestra/self.freq)
+              self.datos[s+'_ay']['tiempo'].append(muestra/self.freq)
+              self.datos[s+'_az']['tiempo'].append(muestra/self.freq)
+              self.datos[s+'_wx']['tiempo'].append(muestra/self.freq)
+              self.datos[s+'_wy']['tiempo'].append(muestra/self.freq)
+              self.datos[s+'_wz']['tiempo'].append(muestra/self.freq)
+              self.datos[s+'_bx']['tiempo'].append(muestra/self.freq)
+              self.datos[s+'_by']['tiempo'].append(muestra/self.freq)
+              self.datos[s+'_bz']['tiempo'].append(muestra/self.freq)
+              self.datos[s+'_ax']['valor'].append(ax[0])
+              self.datos[s+'_ay']['valor'].append(ay[0])
+              self.datos[s+'_az']['valor'].append(az[0])
+              self.datos[s+'_wx']['valor'].append(wx[0])
+              self.datos[s+'_wy']['valor'].append(wy[0])
+              self.datos[s+'_wz']['valor'].append(wz[0])
+              self.datos[s+'_bx']['valor'].append(bx[0])
+              self.datos[s+'_by']['valor'].append(by[0])
+              self.datos[s+'_bz']['valor'].append(bz[0])
+              self.lock.release()
+          elif self.modo==1:
+            muestra=struct.unpack('>H',mensaje[4:6]) #SC, SampleCounter
+            muestra=float(muestra[0])
+            DL=16 #Longitud de los datos en el modo 1
+            for s in self.sensores:
+              k=self.sensores[s].kID
+              q0=struct.unpack('>f',mensaje[6+k*DL:10+k*DL])
+              q1=struct.unpack('>f',mensaje[10+k*DL:14+k*DL])
+              q2=struct.unpack('>f',mensaje[14+k*DL:18+k*DL])
+              q3=struct.unpack('>f',mensaje[18+k*DL:22+k*DL])
+              self.lock.acquire()
+              self.datos[s+'_q0']['tiempo'].append(muestra/self.freq)
+              self.datos[s+'_q1']['tiempo'].append(muestra/self.freq)
+              self.datos[s+'_q2']['tiempo'].append(muestra/self.freq)
+              self.datos[s+'_q3']['tiempo'].append(muestra/self.freq)
+              self.datos[s+'_q0']['valor'].append(q0[0])
+              self.datos[s+'_q1']['valor'].append(q1[0])
+              self.datos[s+'_q2']['valor'].append(q2[0])
+              self.datos[s+'_q3']['valor'].append(q3[0])
+              self.lock.release()                
       except:
         #probably got disconnected
         if self.lock.locked():
@@ -248,10 +289,17 @@ class simurdriver():#pysimur.simurdriver):
     if self.modo==0 :
       self.DataLength=self.ndisp*36+2
       self.Data=1+9*self.ndisp
+    elif self.modo==1:
+      self.DataLength=self.ndisp*16+2
+      self.Data=1+4*self.ndisp
+        
     if self.DataLength>254:
       self.DataLength=self.DataLength+7 # se incluye la cabecera y el checksum
     else:
       self.DataLength=self.DataLength+5 # Se incluye la cabecera y el checksum
+    
+
+    
 
   def __SetPeriod(self,freq=100):
     """Envia el mensaje __SetPeriod al objeto XBusMaster
@@ -270,6 +318,7 @@ class simurdriver():#pysimur.simurdriver):
     Input parameters: 
       format -> 0 datos calibrados
                 1 Quaternion(no esta listo)
+                2 Quaternions + datos calibrados (no esta listo)
                 2 Angulos de Euler(no esta listo)
                 3 Matriz de rotacion (no esta listo
     """
@@ -277,12 +326,15 @@ class simurdriver():#pysimur.simurdriver):
       outmode=[0,2]
       outsett=[0,0,0,0]
     elif format==1:
-      outmode=[0,6]
-      outsett=[0,0,0,0]
+      outmode=[0,4]
+      outsett=[0,0,0,0]      
     elif format==2:
       outmode=[0,6]
-      outsett=[0,0,0,4]
+      outsett=[0,0,0,0]
     elif format==3:
+      outmode=[0,6]
+      outsett=[0,0,0,4]
+    elif format==4:
       outmode=[0,6]
       outsett=[0,0,0,8]
     for k in range(1,self.ndisp+1):
@@ -295,10 +347,14 @@ class simurdriver():#pysimur.simurdriver):
       CheckError(self.puerto,codigo[2]+1)
 
 if __name__=='__main__':
-    datos=[]    
-    bus=simurdriver(datos)
-    bus.addsensor('PIE',1323357)
+    datos={}   
+    bus=simurdriver(datos,freq=50 , modo=1)
+    bus.addsensor('PIE',sensor(1323357,1))
+    bus.addsensor('CABEZA',sensor(1323366,2))
     bus.gotoconfig()
-    bus.configura()
+    bus.configura()#hasta aquí ok
+    bus.gotomeasurement()
+    bus.gotoconfig()
+
     
     
