@@ -25,7 +25,7 @@ def SendMessage(puerto,codigo):
       print ('>>> AVISO: Se descartaran ', puerto.inWaiting() , ' datos')
     puerto.flushInput()
   puerto.write(msg)
-
+  
 def CheckError(puerto,numero):
   """Comprueba si se ha recibido un mensaje enviado,
     analizando el cheksum
@@ -68,6 +68,7 @@ class simurdriver():#pysimur.simurdriver):
     #Calculamos el numero de muestras almacenadas en el buffer
     self.buffer=buff*freq
     self.modo=modo
+    self.rot_matrix = {}
     self.lock=lock
 
     #Creamos el objeto serial asociado al puerto de comunicaciones  
@@ -127,25 +128,21 @@ class simurdriver():#pysimur.simurdriver):
     self.puerto.timeout = timeout
     
     if self.modo==0:
+        self.datos['tiempo']=[]        
         for name in self.sensores:
           for sufijo in ['_ax','_ay','_az','_wx','_wy','_wz','_bx','_by','_bz']:
-            #if not self.datos.has_key(name+sufijo):
             if not (name+sufijo) in self.datos:
-              self.datos[name+sufijo]={}
-              self.datos[name+sufijo]['tiempo']=[]
-              self.datos[name+sufijo]['valor']=[]
+              self.datos[name+sufijo]=[]
               if verbose:
                 print('añadida la señal: ' +name+sufijo)
             else:
               raise ValueError ('la señal '+name+sufijo+' está duplicada')
     if self.modo==1:
+        self.datos['tiempo']=[]
         for name in self.sensores:
           for sufijo in ['_q0','_q1','_q2','_q3']:
-            #if not self.datos.has_key(name+sufijo):
             if not (name+sufijo) in self.datos:
-              self.datos[name+sufijo]={}
-              self.datos[name+sufijo]['tiempo']=[]
-              self.datos[name+sufijo]['valor']=[]
+              self.datos[name+sufijo]=[]
               if verbose:
                 print('añadida la señal: ' +name+sufijo)
             else:
@@ -187,6 +184,7 @@ class simurdriver():#pysimur.simurdriver):
           if self.modo==0:
             muestra=struct.unpack('>H',mensaje[4:6])
             muestra=float(muestra[0])
+            self.datos['tiempo'].append(muestra/self.freq)
             DL=36 #Longitud de los datos en el modo 0
             for s in self.sensores:
               k=self.sensores[s].kID
@@ -200,28 +198,20 @@ class simurdriver():#pysimur.simurdriver):
               by=struct.unpack('>f',mensaje[34+k*DL:38+k*DL])
               bz=struct.unpack('>f',mensaje[38+k*DL:42+k*DL])
               self.lock.acquire()
-              self.datos[s+'_ax']['tiempo'].append(muestra/self.freq)
-              self.datos[s+'_ay']['tiempo'].append(muestra/self.freq)
-              self.datos[s+'_az']['tiempo'].append(muestra/self.freq)
-              self.datos[s+'_wx']['tiempo'].append(muestra/self.freq)
-              self.datos[s+'_wy']['tiempo'].append(muestra/self.freq)
-              self.datos[s+'_wz']['tiempo'].append(muestra/self.freq)
-              self.datos[s+'_bx']['tiempo'].append(muestra/self.freq)
-              self.datos[s+'_by']['tiempo'].append(muestra/self.freq)
-              self.datos[s+'_bz']['tiempo'].append(muestra/self.freq)
-              self.datos[s+'_ax']['valor'].append(ax[0])
-              self.datos[s+'_ay']['valor'].append(ay[0])
-              self.datos[s+'_az']['valor'].append(az[0])
-              self.datos[s+'_wx']['valor'].append(wx[0])
-              self.datos[s+'_wy']['valor'].append(wy[0])
-              self.datos[s+'_wz']['valor'].append(wz[0])
-              self.datos[s+'_bx']['valor'].append(bx[0])
-              self.datos[s+'_by']['valor'].append(by[0])
-              self.datos[s+'_bz']['valor'].append(bz[0])
+              self.datos[s+'_ax'].append(ax[0])
+              self.datos[s+'_ay'].append(ay[0])
+              self.datos[s+'_az'].append(az[0])
+              self.datos[s+'_wx'].append(wx[0])
+              self.datos[s+'_wy'].append(wy[0])
+              self.datos[s+'_wz'].append(wz[0])
+              self.datos[s+'_bx'].append(bx[0])
+              self.datos[s+'_by'].append(by[0])
+              self.datos[s+'_bz'].append(bz[0])
               self.lock.release()
           elif self.modo==1:
             muestra=struct.unpack('>H',mensaje[4:6]) #SC, SampleCounter
             muestra=float(muestra[0])
+            self.datos['tiempo'].append(muestra/self.freq)
             DL=16 #Longitud de los datos en el modo 1
             for s in self.sensores:
               k=self.sensores[s].kID
@@ -229,15 +219,11 @@ class simurdriver():#pysimur.simurdriver):
               q1=struct.unpack('>f',mensaje[10+k*DL:14+k*DL])
               q2=struct.unpack('>f',mensaje[14+k*DL:18+k*DL])
               q3=struct.unpack('>f',mensaje[18+k*DL:22+k*DL])
-              self.lock.acquire()
-              self.datos[s+'_q0']['tiempo'].append(muestra/self.freq)
-              self.datos[s+'_q1']['tiempo'].append(muestra/self.freq)
-              self.datos[s+'_q2']['tiempo'].append(muestra/self.freq)
-              self.datos[s+'_q3']['tiempo'].append(muestra/self.freq)
-              self.datos[s+'_q0']['valor'].append(q0[0])
-              self.datos[s+'_q1']['valor'].append(q1[0])
-              self.datos[s+'_q2']['valor'].append(q2[0])
-              self.datos[s+'_q3']['valor'].append(q3[0])
+              self.lock.acquire()              
+              self.datos[s+'_q0'].append(q0[0])
+              self.datos[s+'_q1'].append(q1[0])
+              self.datos[s+'_q2'].append(q2[0])
+              self.datos[s+'_q3'].append(q3[0])
               self.lock.release()                
       except:
         #probably got disconnected
@@ -299,8 +285,6 @@ class simurdriver():#pysimur.simurdriver):
       self.DataLength=self.DataLength+5 # Se incluye la cabecera y el checksum
     
 
-    
-
   def __SetPeriod(self,freq=100):
     """Envia el mensaje __SetPeriod al objeto XBusMaster
     y lo fija para trabajar a la frecuencia indicada 
@@ -314,14 +298,14 @@ class simurdriver():#pysimur.simurdriver):
     CheckError(self.puerto,codigo[2]+1)
 
   def __SetMTOutputMode(self, format=0):
-    """Envia el mensaje SetOutputMode a cada IMU
-    Input parameters: 
-      format -> 0 datos calibrados
-                1 Quaternion(no esta listo)
-                2 Quaternions + datos calibrados (no esta listo)
-                2 Angulos de Euler(no esta listo)
-                3 Matriz de rotacion (no esta listo
-    """
+    # Envia el mensaje SetOutputMode a cada IMU
+    # Input parameters: 
+    #  format -> 0 datos calibrados
+    #            1 Quaternion(no esta listo)
+    #            2 Quaternions + datos calibrados (no esta listo)
+    #            2 Angulos de Euler(no esta listo)
+    #            3 Matriz de rotacion (no esta listo
+    
     if format==0:
       outmode=[0,2]
       outsett=[0,0,0,0]
@@ -345,16 +329,88 @@ class simurdriver():#pysimur.simurdriver):
       codigo=[250,k,210,4]+outsett
       SendMessage(self.puerto,codigo)
       CheckError(self.puerto,codigo[2]+1)
+  
+  def setObjectAlignment(self, sensorname, zdir=0):
+      #sensor es un parámetro que contiene una cadena de caracteres con el nombre del sensor a configurar
+      #zdir puede tomar los siguientes valores en relación al dibujo en relieve del sensor:
+      #    - 0: la orientación de los datos es como marca el dibujo en relieve.
+      #    - 1: newX=Z, newY=Y, newZ=-X
+          
+      if zdir:
+          rotmatrix = [0.0,0.0,1.0,0.0,1.0,0.0,-1.0,0.0,0.0]
+      else:
+          rotmatrix = [1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0]
+      
+      data = []
+      for i in range(0,len(rotmatrix)):
+          data = data + list(struct.pack('>f',rotmatrix[i]))
+      datalenght = len(data)
+      
+      codigo=[250, self.sensores[sensorname].kID+1, 224, datalenght] + data
+      SendMessage(self.puerto, codigo)
+      CheckError(self.puerto, codigo[2]+1)
+
+  def requestObjectAlignment(self, sensorname):
+      # sensor es un parámetro que contiene una cadena de caracteres con el nombre del sensor a configurar
+      codigo = [250, self.sensores[sensorname].kID+1, 224, 0]
+      # Se envia el codigo al XBus
+      SendMessage(self.puerto, codigo)
+      # En reply se almacenan los campos DATA y CS. Si hubiera algún fallo en la recepción, se detectaría.
+      reply = self.__checkLenghtAndCS(codigo[2])    
+      # DATA contiene la matriz de rotación en formato [a,b,c,d,e,f,g,h,i]. Cada elemento es un float.
+      self.rot_matrix[sensorname], remaining = self.__readDataFromReply(reply,9,4,'>f')
+      # remaining contendrá el resto del mensaje no transformado. En este caso, el CS.
+  
+  def __readDataFromReply(self, reply, ndata, datalenght, dataformat):
+      #reply: bytes object
+      #    ndata: number of single data in reply
+      #    datalenght: number of bytes that belongs to every single data
+      #    dataformat: '>f', 'B',...
+      msg = []
+      for i in range(0,ndata*datalenght,datalenght):
+          msg.append(struct.unpack(dataformat, reply[i:i+datalenght])[0])
+      # data will contain the desired info and reply will contain the remaining bytes of the reply
+      return msg, reply
+      
+  def __checkLenghtAndCS(self, MID):
+      #Primero se leen 4 bytes para concer la longitud total del mensaje
+      reply=self.puerto.read(4)
+      reply=struct.unpack('BBBB',reply)
+      if reply[2]!=225:
+          raise ValueError ('Error en la secuencia de mensajes')
+      #de momento no se ha detectado ningun error y se continua con la lectura
+      #del resto del mensaje ack1(end)+1 bytes
+      reply2=self.puerto.read(reply[-1]+1)
+      #for tmp in reply2:
+      #  reply=reply+struct.unpack('B',tmp)
+      reply=reply+struct.unpack('B'*len(reply2),reply2)    
+      checksum=sum(reply[1:])
+      if checksum%256!=0:
+          raise ValueError ('Error de checksum')
+      return reply2
+      
+      
 
 if __name__=='__main__':
-    datos={}   
-    bus=simurdriver(datos,freq=50 , modo=1)
-    bus.addsensor('PIE',sensor(1323357,1))
-    bus.addsensor('CABEZA',sensor(1323366,2))
+    
+    from kinematic_chain import kinematic_chain    
+    
+    datos = {}   
+    bus=simurdriver(datos,freq=100 , modo=1, buff=0.1)
+    bus.addsensor('brazo',sensor(1323357,1))
+    bus.addsensor('antebrazo',sensor(1323366,2))
+    bus.addsensor('mano',sensor(1323356,3))    
     bus.gotoconfig()
     bus.configura()#hasta aquí ok
+    
+    brazo = kinematic_chain(datos)
     bus.gotomeasurement()
+    time.sleep(0.2)
+    brazo.plot()
     bus.gotoconfig()
+    for sensor in bus.sensores:
+        bus.requestObjectAlignment(sensor)
+        
 
     
     
