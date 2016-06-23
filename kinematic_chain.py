@@ -9,64 +9,112 @@ import numpy as np
 import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d.axes3d as p3
 import matplotlib.animation as animation
+from matplotlib.figure import Figure
+from matplotlib.backends.backend_qt4agg import (
+    FigureCanvasQTAgg as FigureCanvas,
+    NavigationToolbar2QT as NavigationToolbar)
 import math
 from mathutils import Quaternion
 
+import time
+import threading
+
 class kinematic_chain:
-    def __init__(self, data, framesnames=['brazo', 'antebrazo', 'mano'], frameslenghts=[0.35, 0.25, 0.1]):
-        # frames is a dictionary that contains names and lenghts of every frame
+    def __init__(self, driverXbus, framesnames=['brazo', 'antebrazo', 'mano'], frameslenghts=[0.35, 0.25, 0.1]):
+        # framesnames continen los nombres y el orden en el que están conectados los eslabones
+        # frameslenghts contiene las longitudes de los eslabones que forman la cadena
         # Se comprueba si las dimensiones de los arrays pasados son correctos y si las longitudes son positivas
         self.__dataok=False
         
         if len(framesnames)<1 or len(framesnames)!=len(frameslenghts):
-            raise ValueError ("Las listas deben contener algún elemento y ser de la misma dimensión")
+            raise ValueError (">>>ERROR: Los datos introducidos para crear el objeto kinematic_chain\
+                                son incorrectos")
+        elif self.__checkFrames(driverXbus, framesnames) == False:
+            raise ValueError (">>>ERROR: los eslabones introducidos para crear el objeto\
+                               'kinematic_chain' no se encuentran en los datos.")
+        
         elif all(i>0 for i in frameslenghts):            
             self.mod = frameslenghts
             self.frames = framesnames
             self.nframes = len(self.frames)
             self.v = []
-            self.data = data #misma referencia
+            self.driver = driverXbus
+            self.data = driverXbus.datos #Esto sobra si se sustituye self.data por self.driver.datos en toooooda la clase
             for i in range (0,self.nframes):
-                self.v.append(Quaternion((0.0, 0.0, 0.0, 1.0))) #Todos los eslabones se definen mirando hacia abajo
+                self.v.append(Quaternion((0.0, 0.0, 0.0, 1.0))) # Todos los eslabones se definen igual
 
             self.__dataok=True
-            
+        
         if self.__dataok:
             self.__setOrigin()
-            print ('El objeto se ha creado correctamente.')
+            print ('La cadena cinemática', self.frames,'se ha creado correctamente.')
+                        
+            # Se inicializan los datos necesarios
+            self.__initData()
+            
+            # Se crea un objeto que lanza la conversión
+            self.coordinatesLock = threading.Lock()
+            self.anglesLock = threading.Lock()            
+            
+            self.procThread = recurringTimer(0.1, self.processData)
+            self.procThread.start_timer()
+            
+            
+    def __initData(self):
+        self.latestQuat = {}
+        self.ang = {}
+        axis = ['X', 'Y', 'Z']
+        for frame in self.frames:
+            self.ang[frame] = {}
+            for ax in axis:
+                self.ang[frame][ax] = 0
+        return True
+            
+    def __checkFrames(self, driverXbus, framesnames):
+        for frame in framesnames:
+            if frame not in driverXbus.sensores:
+                return False
+        return True
+        
 
-
-    def rotateFrames(self, q): #q es un diccionario de quaterniones, p.ej.:{'mano':Quaternion((0.0,1.0,0.0,0.0))}
+    def rotateFrames(self, q=None): #q es un diccionario de quaterniones, p.ej.:{'mano':Quaternion((0.0,1.0,0.0,0.0)),...}
+        if q==None:
+            q = self.latestQuat
         if len(q)!=self.nframes:
-            raise ValueError ("El número de quaternions no se corresponde con el número de eslabones de la cadena.")
+            raise ValueError ("El número de quaternions no se corresponde con el número\
+                               de eslabones de la cadena.")
         else:
-            v_ = [] #vectores resultantes tras el giro.
+            self.v_ = [] #vectores resultantes tras el giro.
+            self.coordinatesLock.acquire()
             self.coordinates = [] #coordinadas de los puntos que definen cada eslabón.
             for i in range (0,self.nframes):
-                v_.append(q[self.frames[i]]*self.v[i]*q[self.frames[i]].conjugated())
+                self.v_.append(q[self.frames[i]][0]*self.v[i]*q[self.frames[i]][0].conjugated())
                 if i==0:
-                    self.coordinates.append(((self.origin[0], self.origin[0]+v_[i][1]*self.mod[i]),
-                                        (self.origin[1], self.origin[1]+v_[i][2]*self.mod[i]),
-                                        (self.origin[2], self.origin[2]+v_[i][3]*self.mod[i])))
+                    self.coordinates.append(((self.origin[0], self.origin[0]+self.v_[i][1]*self.mod[i]),
+                                        (self.origin[1], self.origin[1]+self.v_[i][2]*self.mod[i]),
+                                        (self.origin[2], self.origin[2]+self.v_[i][3]*self.mod[i])))
                 else:
-                    self.coordinates.append(((self.coordinates[i-1][0][1],self.coordinates[i-1][0][1]+v_[i][1]*self.mod[i]),
-                                        (self.coordinates[i-1][1][1],self.coordinates[i-1][1][1]+v_[i][2]*self.mod[i]),
-                                        (self.coordinates[i-1][2][1],self.coordinates[i-1][2][1]+v_[i][3]*self.mod[i])))
+                    self.coordinates.append(((self.coordinates[i-1][0][1],self.coordinates[i-1][0][1]+self.v_[i][1]*self.mod[i]),
+                                        (self.coordinates[i-1][1][1],self.coordinates[i-1][1][1]+self.v_[i][2]*self.mod[i]),
+                                        (self.coordinates[i-1][2][1],self.coordinates[i-1][2][1]+self.v_[i][3]*self.mod[i])))
+            
         
         self.coordinates = dict(list(zip(self.frames,self.coordinates)))
-
-    def getQuaternionsFromData (self, subdata, mean=False):
+        self.coordinatesLock.release()        
+        
+    """def getQuaternionsFromData (self, subdata, mean=False):
         ''' 'subdata' will contain the whole data and 'mean' parameter indicates whether the data used
         for calculating the Quaternion is:
                - a single value -> mean = False
                - the average of all the values -> mean = True'''
         quat = {}
         sufix = ['_q0', '_q1', '_q2', '_q3']
+        
         for name in self.frames:
             quat[name] = []
             for suf in sufix:
                 if not name+suf in subdata.keys():
-                    raise ValueError ('Signal not found in data dictionary. Operation aborted.')
+                    raise ValueError ('>>>ERROR: señal no encontrada en los datos.')
                 elif mean:
                     avg = sum(subdata[name+suf])/len(subdata[name+suf])
                     quat[name].append(avg)                
@@ -74,9 +122,36 @@ class kinematic_chain:
                     quat[name].append(subdata[name+suf][0])
                     
             quat[name] = Quaternion((quat[name][0], quat[name][1], quat[name][2], quat[name][3]))
-        return quat
+        return quat"""
+
+            
+    def processData(self):
+        # Este método se lanzará en un hilo para que se realice continuamente
+        # la conversión de datos "crudos" a Quaternions.
+        keys = list(self.data.keys())
+        if len(self.data[keys[0]]) == 0: #se chequea la longitud de una lista cualquiera de los datos para ver si está vacía.
+            print (">>> AVISO: no se han podido convertir datos a Quaternions.\
+ La base de datos está vacía.")
+            return False
+        else:
+            self.latestQuat = self.driver.getQuaternionsFromData(self.driver.getLatestData())
+            self.rotateFrames()
+            self.getAnglesFromQuaternions()
+            return True
+
+    def getAnglesFromQuaternions(self):
+        # Esta función convierte los datos almacenados en self.data a objetos
+        # de la clase Quaternion y borra aquellos datos ya usados.
+        self.anglesLock.acquire()
+        self.ang = {}
+        axis = ['X', 'Y', 'Z']
+        for frame in self.frames:
+            self.ang[frame] = {}
+            for i in range(0,3):
+                self.ang[frame][axis[i]] = math.degrees(self.latestQuat[frame][0].to_euler()[i])
+        self.anglesLock.release()                
     
-    def getLatestData (self, n=1):
+    """def getLatestData (self, n=1):
         '''Retorna los ultimos n datos contenidos en data
         y los retorna en un diccionario con el mismo formato.'''
         subdata = {}
@@ -94,7 +169,7 @@ class kinematic_chain:
             subdata[signal] = []
             for i in t:
                 subdata[signal].append(self.data[signal][i])
-        return subdata 
+        return subdata"""
     
     def __setOrigin(self):
         self.origin = (0, 0, sum(self.mod))
@@ -112,17 +187,33 @@ class kinematic_chain:
         # Ahora se modifican los frames para la representación sea correcta
         for i in range(0, self.nframes):
            self.v[i] = self.qoffset[self.frames[i]]*self.v[i]*self.qoffset[self.frames[i]].conjugated()
-        
-    def __initPlot(self):
+           
+    """# Las funciones de representación se han trasladado a una clase específica
+    def updatePlot(self,i):
+        # se actualizan los valores de las lineas
+        for name in self.frames:
+            self.lines[name][0].set_data(self.coordinates[name][0], self.coordinates[name][1])
+            self.lines[name][0].set_3d_properties(self.coordinates[name][2])
 
-        self.ax.set_xlim3d([-0.5, 0.5])
-        self.ax.set_xlabel('X')
-        self.ax.set_ylim3d([-0.5, 0.5])
-        self.ax.set_ylabel('Y')
-        self.ax.set_zlim3d([0.0, 1.0])
-        self.ax.set_zlabel('Z')
-        self.ax.set_title('3D Test')
+
+    def plot3d(self, widget):
+        # 'widget' será dónde se quiera mostrar el gráfico
+        # Creación de la figura
+        self.fig3d = Figure()
+        # y enlace con el canvas.
+        self.canvas3d = FigureCanvas(self.fig3d)
+        # Creación los ejes 3D
+        self.ax3d = p3.Axes3D(self.fig3d)
+        # Establecimiento de los límites de los ejes
+        self.ax3d.set_xlim3d([-0.5, 0.5])
+        self.ax3d.set_xlabel('X')
+        self.ax3d.set_ylim3d([-0.5, 0.5])
+        self.ax3d.set_ylabel('Y')
+        self.ax3d.set_zlim3d([0.0, 1.0])
+        self.ax3d.set_zlabel('Z')
+        self.ax3d.set_title('3D View')     
         
+        # Creación de la lista de colores
         col = ['red','blue','green', 'black', 'yellow', 'pink', 'orange']  
         colors = {}
         for i in range(0,self.nframes):
@@ -130,51 +221,109 @@ class kinematic_chain:
             if i>6:
                 j=i%6
             colors[self.frames[i]] = col[j]
-            
-        self.coordinates = [((0,0),(0,0),(0,0.5)),((0,0),(0,0),(0.5,1)),((0,0),(0,0),(1,1.2))]
+       
+        # Definición de las coordenadas iniciales
+        self.coordinates = [((0,0),(0,0),(0,0)),((0,0),(0,0),(0,0)),((0,0),(0,0),(0,0))]
         self.coordinates = dict(list(zip(self.frames, self.coordinates)))
-        # Creación de las 3DLines
 
-        
+        # Creación de las 3DLines
         self.lines = {}
         for name in self.frames:
-            self.lines[name] = self.ax.plot(self.coordinates[name][0],self.coordinates[name][1],self.coordinates[name][2],
-                            '-o',markersize=4,markerfacecolor="orange",linewidth=3, color=colors[name])
-        self.ax.hold(False)                        
-        return self.lines
-                                                  
-                                                           
+            self.lines[name] = self.ax3d.plot(self.coordinates[name][0],self.coordinates[name][1],self.coordinates[name][2],'-o',markersize=4,markerfacecolor="orange",linewidth=3, color=colors[name])
+        # Se llama a ax.hold para que borre lo que estaba antes y dibuje todo nuevo.                            
+        self.ax3d.hold(False)                        
+        # Enlace del canvas con el widget
+        widget.addWidget(self.canvas3d)
+        self.canvas3d.draw()
+        # Creación de la animación.
+        self.anim = animation.FuncAnimation(self.fig3d, self.updatePlot,interval=100, blit=False)"""
         
-    def __updatePlot(self,i):
         
-        t = [i]
-        q = self.getQuaternionsFromData(self.getSortedData(t))#ESTO HABRIA QUE CAMBIARLO POR
-        #q = self.getQuaternionsFromData(self.getLatestData())
+#------------------------------------------------------------------------------
         
-        self.rotateFrames(q)     
+class plot3DChain:
+    def __init__(self, chain, widget):
+        # 'widget' será dónde se quiera mostrar el gráfico
+        # 'chain' es la cadena cinemática a representar
+        self.chain = chain
+        # Creación de la figura
+        self.fig3d = Figure()
+        # y enlace con el canvas.
+        self.canvas3d = FigureCanvas(self.fig3d)
+        # Creación los ejes 3D
+        self.ax3d = p3.Axes3D(self.fig3d)
+        # Establecimiento de los límites de los ejes
+        self.ax3d.set_xlim3d([-0.5, 0.5])
+        self.ax3d.set_xlabel('X')
+        self.ax3d.set_ylim3d([-0.5, 0.5])
+        self.ax3d.set_ylabel('Y')
+        self.ax3d.set_zlim3d([0.0, 1.0])
+        self.ax3d.set_zlabel('Z')
+        self.ax3d.set_title('3D View')     
         
+        # Creación de la lista de colores
+        col = ['red','blue','green', 'black', 'yellow', 'pink', 'orange']  
+        colors = {}
+        for i in range(0,self.chain.nframes):
+            j = i
+            if i>6:
+                j=i%6
+            colors[self.chain.frames[i]] = col[j]
+       
+        # Definición de las coordenadas iniciales
+        coordinates = [((0,0),(0,0),(0,0)),((0,0),(0,0),(0,0)),((0,0),(0,0),(0,0))]
+        coordinates = dict(list(zip(self.chain.frames, coordinates)))
+
+        # Creación de las 3DLines
+        self.lines = {}
+        for name in self.chain.frames:
+            self.lines[name] = self.ax3d.plot(coordinates[name][0],coordinates[name][1],coordinates[name][2],'-o',markersize=4,markerfacecolor="orange",linewidth=3, color=colors[name])
+        # Se llama a ax.hold para que borre lo que estaba antes y dibuje todo nuevo.                            
+        self.ax3d.hold(False)                        
+        # Enlace del canvas con el widget
+        widget.addWidget(self.canvas3d)
+        self.canvas3d.draw()
+        # Creación de la animación.
+        self.anim = animation.FuncAnimation(self.fig3d, self.updatePlot,interval=100, blit=False)   
+
+    def updatePlot(self,i):
         # se actualizan los valores de las lineas
-        for name in self.frames:
-            self.lines[name][0].set_data(self.coordinates[name][0], self.coordinates[name][1])
-            self.lines[name][0].set_3d_properties(self.coordinates[name][2])
-               
-        return self.lines
-        
+        for name in self.chain.frames:
+            self.lines[name][0].set_data(self.chain.coordinates[name][0], self.chain.coordinates[name][1])
+            self.lines[name][0].set_3d_properties(self.chain.coordinates[name][2]) 
+            
+#------------------------------------------------------------------------------            
+class recurringTimer(threading.Timer):
+    # Implementación de una clase que permite la invocación de un método de forma periódica
+     
+    def __init__ (self, *args, **kwargs):
+        threading.Timer.__init__ (self, *args, **kwargs) 
+        self.setDaemon (True)
+        self._running = 0
+        self._destroy = 0
+        self.start()
+ 
+    def run (self):
+        while True:
+            self.finished.wait (self.interval)
+            if self._destroy:
+                return;
+            if self._running:
+                self.function (*self.args, **self.kwargs)
+ 
+    def start_timer (self):
+        self._running = 1
+ 
+    def stop_timer (self):
+        self._running = 0
+ 
+    def is_running (self):
+        return self._running
+ 
+    def destroy_timer (self):
+        self._destroy = 1;
 
-    def plot(self):    
-        # Enlazamos los ejes a la figura
-        fig = plt.figure()
-        self.ax=fig.add_subplot(111, projection='3d')
-        # Se llama a __setOffset para establecer la orientación inicial del los frames
-        #self.__setOffset()
-         
-        # Creación del objeto Animation
-        frame_anim = animation.FuncAnimation(fig, self.__updatePlot, frames=10, interval=500, blit=False,
-                                             init_func = self.__initPlot, repeat=False)
-        
-        plt.show()
 
-        
 # Ejemplo de uso, generando unos cadena de 3 eslabones          
 if __name__ == "__main__":
     
@@ -301,5 +450,6 @@ if __name__ == "__main__":
  'tiempo': [0.0, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 4]}    
     
     brazo=kinematic_chain(datos)
+
+
     
-    brazo.plot()
