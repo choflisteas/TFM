@@ -348,7 +348,7 @@ class simurdriver():
           rotmatrix = [0.0,0.0,1.0,0.0,1.0,0.0,-1.0,0.0,0.0]
       else:
           rotmatrix = [1.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,1.0]
-      
+     
       data = []
       for i in range(0,len(rotmatrix)):
           data = data + list(struct.pack('>f',rotmatrix[i]))
@@ -460,11 +460,13 @@ class simurdriver():
           
       if mean:
           for name in self.sensores:
-
+              q = []
               for suf in sufix:
                   avg = sum(subdata[name+suf])/len(subdata[name+suf])
-                  quat[name].append(avg)          
-          return quat        
+                  q.append(avg)
+              quat[name]=Quaternion((q[0],q[1],q[2],q[3]))
+          return quat
+          
       else:
           for i in range(0,nquat):
               for name in self.sensores:
@@ -481,22 +483,23 @@ if __name__=='__main__':
     from kinematic_chain import *
     
     #Definición de la frecuencia de muestreo
-    sampFreq = 200
+    sampFreq = 100
     
     bus=simurdriver(freq=sampFreq,modo=1,buff=0.1)
 
-    bus.addsensor('brazo',sensor(1323357,0))
-    bus.addsensor('antebrazo',sensor(1323366,1))
-    bus.addsensor('mano',sensor(1323356,2))    
+    bus.addsensor('clavicula',sensor(323868,0))
+    bus.addsensor('brazo',sensor(1323366,1))
+    bus.addsensor('antebrazo',sensor(1323357,2))
+    bus.addsensor('mano',sensor(1323356,3))       
 
     bus.gotoconfig()
     bus.configura()
     
-    brazo = kinematic_chain(bus)
+    brazo = kinematic_chain(bus,['clavicula','brazo','antebrazo','mano'],[0.2,0.35,0.3,0.1],['hombro','codo','munyeca'])
     
     bus.gotomeasurement()
 
-    time.sleep(0.15)
+    time.sleep(0.5)
     bus.gotoconfig()
     
     
